@@ -1,0 +1,16 @@
+name: nosql-benchmark
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pymongo
+  - requests
+  - numpy
+  - pip
+  - pip:
+      - python-arango
+      - couchbase
+      - pandas
+      - matplotlib
+      - seaborn
