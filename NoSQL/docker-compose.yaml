@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+    volumes:
+      - mongo_data:/data/db
+
+  couchbase:
+    image: couchbase:community
+    container_name: couchbase
+    environment:
+      - COUCHBASE_ADMINISTRATOR_USERNAME=admin
+      - COUCHBASE_ADMINISTRATOR_PASSWORD=admin
+    ports:
+      - "8091-8096:8091-8096"
+      - "11210:11210"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 768M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8091/ui/index.html"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  couchbase-init:
+    image: curlimages/curl:latest
+    depends_on:
+      couchbase:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      "
+      echo 'Waiting Couchbase setup...';
+      sleep 10;
+      echo 'Initializing Couchbase Cluster...';
+      curl -s -u admin:admin -X POST http://couchbase:8091/nodes/self/controller/settings -d path=/opt/couchbase/var/lib/couchbase/data;
+      curl -s -u admin:admin -X POST http://couchbase:8091/pools/default -d memoryQuota=512 -d indexMemoryQuota=256 -d ftsMemoryQuota=256;
+      curl -s -u admin:admin -X POST http://couchbase:8091/settings/web -d port=8091 -d username=admin -d password=admin123;
+      curl -s -u admin:admin -X POST http://couchbase:8091/pools/default/buckets -d name=benchmark -d ramQuotaMB=100 -d bucketType=couchbase -d authType=sasl;
+      echo 'Couchbase initialized!';
+      "
+
+  couchdb:
+    image: couchdb:latest
+    container_name: couchdb
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=admin
+    ports:
+      - "5984:5984"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+  arangodb:
+    image: arangodb:latest
+    container_name: arangodb
+    environment:
+      - ARANGO_ROOT_PASSWORD=admin
+    ports:
+      - "8529:8529"
+    volumes:
+      - arango_data:/var/lib/arangodb3
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1024M
+
+volumes:
+  mongo_data:
+  arango_data:
